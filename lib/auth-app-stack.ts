@@ -14,6 +14,8 @@ export class AuthAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    
+
     const userPool = new UserPool(this, "UserPool", {
       signInAliases: { username: true, email: true },
       selfSignUpEnabled: true,
@@ -38,4 +40,35 @@ export class AuthAppStack extends cdk.Stack {
 
     this.auth = authApi.root.addResource("auth");
   }
+
+  private addAuthRoute(
+    resourceName: string,
+    method: string,
+    fnName: string,
+    fnEntry: string,
+    allowCognitoAccess?: boolean
+  ): void {
+    const commonFnProps = {
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      runtime: lambda.Runtime.NODEJS_16_X,
+      handler: "handler",
+      environment: {
+        USER_POOL_ID: this.userPoolId,
+        CLIENT_ID: this.userPoolClientId,
+        REGION: cdk.Aws.REGION
+      },
+    };
+    
+    const resource = this.auth.addResource(resourceName);
+    
+    const fn = new node.NodejsFunction(this, fnName, {
+      ...commonFnProps,
+      entry: `${__dirname}/../lambda/auth/${fnEntry}`,
+    });
+
+    resource.addMethod(method, new apig.LambdaIntegration(fn));
+  }  // end private method
 }
+
